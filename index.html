@@ -74,7 +74,7 @@ td.num, th.num { text-align: right; }
 tr.total td { font-weight: 600; border-top: 2px solid var(--fg); border-bottom: 0; }
 .age-bar { display: flex; height: 6px; border-radius: 3px; overflow: hidden; min-width: 90px; background: var(--line); }
 .age-bar i { display: block; height: 100%; }
-.a0 { background: var(--good); } .a1 { background: var(--warn); } .a2 { background: var(--bad); }
+.a0 { background: var(--good); } .a1 { background: var(--warn); } .a2 { background: var(--bad); } .a3 { background: var(--bad); filter: brightness(0.65); }
 .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
 .tabs button[aria-selected=true] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .prev th { background: var(--head); color: #fff; position: sticky; top: 0; }
@@ -248,7 +248,7 @@ tr.total td { font-weight: 600; border-top: 2px solid var(--fg); border-bottom: 
       rec['CHALLAN AMT'] = num(rec['CHALLAN AMT']);
       rec['DC AGE'] = end - d;
       rec['Location'] = who;
-      rec['Ageing'] = rec['DC AGE'] <= 30 ? '0-30' : rec['DC AGE'] <= 60 ? '30-60' : '>60';
+      rec['Ageing'] = rec['DC AGE'] <= 7 ? '0-7' : rec['DC AGE'] <= 14 ? '7-14' : rec['DC AGE'] <= 21 ? '14-21' : '>21';
       out[who].push(rec); kept++;
     }
     PEOPLE.forEach(function (n) { out[n].sort(function (a, b) { return a['CHALLAN_DATE'] - b['CHALLAN_DATE']; }); });
@@ -261,10 +261,10 @@ tr.total td { font-weight: 600; border-top: 2px solid var(--fg); border-bottom: 
   }
 
   function stats(rows) {
-    var s = { n: rows.length, qty: 0, amt: 0, a: 0, b: 0, c: 0 };
+    var s = { n: rows.length, qty: 0, amt: 0, a: 0, b: 0, c: 0, d: 0 };
     rows.forEach(function (r) {
       s.qty += r['CHALLAN QTY']; s.amt += r['CHALLAN AMT'];
-      if (r['Ageing'] === '0-30') s.a++; else if (r['Ageing'] === '30-60') s.b++; else s.c++;
+      if (r['Ageing'] === '0-7') s.a++; else if (r['Ageing'] === '7-14') s.b++; else if (r['Ageing'] === '14-21') s.c++; else s.d++;
     });
     return s;
   }
@@ -272,16 +272,16 @@ tr.total td { font-weight: 600; border-top: 2px solid var(--fg); border-bottom: 
   var nf2 = new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   function render() {
-    var D = state.data, tot = { n: 0, qty: 0, amt: 0, a: 0, b: 0, c: 0 };
+    var D = state.data, tot = { n: 0, qty: 0, amt: 0, a: 0, b: 0, c: 0, d: 0 };
     $('meta').innerHTML = 'Report end date <b>' + fmt(D.end) + '</b> · Cut-off <b>' + fmt(D.cutoff) + '</b> (last ' + D.days + ' days removed) · Rows kept <b>' + D.kept + '</b>';
-    var h = '<tr><th>In-charge</th><th class="num">Rows</th><th class="num">Qty</th><th class="num">Amount</th><th class="num">0-30</th><th class="num">30-60</th><th class="num">&gt;60</th><th>Age mix</th></tr>';
+    var h = '<tr><th>In-charge</th><th class="num">Rows</th><th class="num">Qty</th><th class="num">Amount</th><th class="num">0-7</th><th class="num">7-14</th><th class="num">14-21</th><th class="num">&gt;21</th><th>Age mix</th></tr>';
     PEOPLE.forEach(function (n) {
       var s = stats(D.out[n]);
       Object.keys(tot).forEach(function (k) { tot[k] += s[k]; });
       var t = s.n || 1;
-      h += '<tr><td>' + n + '</td><td class="num">' + s.n + '</td><td class="num">' + nf.format(s.qty) + '</td><td class="num">' + nf2.format(s.amt) + '</td><td class="num">' + s.a + '</td><td class="num">' + s.b + '</td><td class="num">' + s.c + '</td><td><div class="age-bar"><i class="a0" style="width:' + s.a / t * 100 + '%"></i><i class="a1" style="width:' + s.b / t * 100 + '%"></i><i class="a2" style="width:' + s.c / t * 100 + '%"></i></div></td></tr>';
+      h += '<tr><td>' + n + '</td><td class="num">' + s.n + '</td><td class="num">' + nf.format(s.qty) + '</td><td class="num">' + nf2.format(s.amt) + '</td><td class="num">' + s.a + '</td><td class="num">' + s.b + '</td><td class="num">' + s.c + '</td><td class="num">' + s.d + '</td><td><div class="age-bar"><i class="a0" style="width:' + s.a / t * 100 + '%"></i><i class="a1" style="width:' + s.b / t * 100 + '%"></i><i class="a2" style="width:' + s.c / t * 100 + '%"></i><i class="a3" style="width:' + s.d / t * 100 + '%"></i></div></td></tr>';
     });
-    h += '<tr class="total"><td>Total</td><td class="num">' + tot.n + '</td><td class="num">' + nf.format(tot.qty) + '</td><td class="num">' + nf2.format(tot.amt) + '</td><td class="num">' + tot.a + '</td><td class="num">' + tot.b + '</td><td class="num">' + tot.c + '</td><td></td></tr>';
+    h += '<tr class="total"><td>Total</td><td class="num">' + tot.n + '</td><td class="num">' + nf.format(tot.qty) + '</td><td class="num">' + nf2.format(tot.amt) + '</td><td class="num">' + tot.a + '</td><td class="num">' + tot.b + '</td><td class="num">' + tot.c + '</td><td class="num">' + tot.d + '</td><td></td></tr>';
     $('sumtbl').innerHTML = h;
     state.tot = tot;
     var lk = Object.keys(D.left);
@@ -317,9 +317,9 @@ tr.total td { font-weight: 600; border-top: 2px solid var(--fg); border-bottom: 
       'Enclosed is the latest Pending DC Report for Minister White Clothing. Please go through it and act on the open items.'
     ]);
     var st = pick([
-      'The report lists ' + N + ' pending entries covering ' + U + ' units, with an outstanding value of about ₹' + X + ' Lakhs. For easier tracking, the entries are grouped by age: ' + t.a + ' are within 0-30 days, ' + t.b + ' are between 30-60 days, and ' + t.c + ' are above 60 days.',
-      'In total, ' + N + ' DC entries are pending, amounting to ' + U + ' units and roughly ₹' + X + ' Lakhs. By age, ' + t.a + ' entries fall in 0-30 days, ' + t.b + ' in 30-60 days, and ' + t.c + ' are older than 60 days.',
-      'A total of ' + N + ' pending entries have been identified, representing ' + U + ' units valued at approximately ₹' + X + ' Lakhs. Ageing wise, ' + t.a + ' are in the 0-30 day band, ' + t.b + ' in the 30-60 day band, and ' + t.c + ' are beyond 60 days.'
+      'The report lists ' + N + ' pending entries covering ' + U + ' units, with an outstanding value of about ₹' + X + ' Lakhs. For easier tracking, the entries are grouped by age: ' + t.a + ' are within 0-7 days, ' + t.b + ' are between 7-14 days, ' + t.c + ' are between 14-21 days, and ' + t.d + ' are above 21 days.',
+      'In total, ' + N + ' DC entries are pending, amounting to ' + U + ' units and roughly ₹' + X + ' Lakhs. By age, ' + t.a + ' entries fall in 0-7 days, ' + t.b + ' in 7-14 days, ' + t.c + ' in 14-21 days, and ' + t.d + ' are older than 21 days.',
+      'A total of ' + N + ' pending entries have been identified, representing ' + U + ' units valued at approximately ₹' + X + ' Lakhs. Ageing wise, ' + t.a + ' are in the 0-7 day band, ' + t.b + ' in the 7-14 day band, ' + t.c + ' in the 14-21 day band, and ' + t.d + ' are beyond 21 days.'
     ]);
     var rv = pick([
       'The concerned teams are requested to go through each pending entry, find the reasons for the delay, check the current status of the DC, and make sure the receipt is confirmed and the records are updated.',

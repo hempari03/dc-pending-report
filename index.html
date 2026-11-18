@@ -144,6 +144,12 @@ tr.total td { font-weight: 600; border-top: 2px solid var(--fg); border-bottom: 
       <p class="note">To and CC are not filled. Add them when you send. Attach the downloaded Excel.</p>
       <div class="mail" id="mail"></div>
     </section>
+
+    <section class="panel" style="margin-top:20px">
+      <div class="row"><h2 class="grow">Mail draft (தமிழ்)</h2><button class="primary" id="copyta">Copy mail</button></div>
+      <p class="note">Tamil version of the same mail. To and CC are not filled.</p>
+      <div class="mail" id="mailta" lang="ta"></div>
+    </section>
   </div>
 </div>
 
@@ -248,7 +254,7 @@ tr.total td { font-weight: 600; border-top: 2px solid var(--fg); border-bottom: 
       rec['CHALLAN AMT'] = num(rec['CHALLAN AMT']);
       rec['DC AGE'] = end - d;
       rec['Location'] = who;
-      rec['Ageing'] = rec['DC AGE'] <= 7 ? '0-7' : rec['DC AGE'] <= 14 ? '7-14' : rec['DC AGE'] <= 21 ? '14-21' : '>21';
+      rec['Ageing'] = rec['DC AGE'] <= 7 ? '0-7' : rec['DC AGE'] <= 14 ? '8-14' : rec['DC AGE'] <= 21 ? '15-21' : '>21';
       out[who].push(rec); kept++;
     }
     PEOPLE.forEach(function (n) { out[n].sort(function (a, b) { return a['CHALLAN_DATE'] - b['CHALLAN_DATE']; }); });
@@ -264,7 +270,7 @@ tr.total td { font-weight: 600; border-top: 2px solid var(--fg); border-bottom: 
     var s = { n: rows.length, qty: 0, amt: 0, a: 0, b: 0, c: 0, d: 0 };
     rows.forEach(function (r) {
       s.qty += r['CHALLAN QTY']; s.amt += r['CHALLAN AMT'];
-      if (r['Ageing'] === '0-7') s.a++; else if (r['Ageing'] === '7-14') s.b++; else if (r['Ageing'] === '14-21') s.c++; else s.d++;
+      if (r['Ageing'] === '0-7') s.a++; else if (r['Ageing'] === '8-14') s.b++; else if (r['Ageing'] === '15-21') s.c++; else s.d++;
     });
     return s;
   }
@@ -274,7 +280,7 @@ tr.total td { font-weight: 600; border-top: 2px solid var(--fg); border-bottom: 
   function render() {
     var D = state.data, tot = { n: 0, qty: 0, amt: 0, a: 0, b: 0, c: 0, d: 0 };
     $('meta').innerHTML = 'Report end date <b>' + fmt(D.end) + '</b> · Cut-off <b>' + fmt(D.cutoff) + '</b> (last ' + D.days + ' days removed) · Rows kept <b>' + D.kept + '</b>';
-    var h = '<tr><th>In-charge</th><th class="num">Rows</th><th class="num">Qty</th><th class="num">Amount</th><th class="num">0-7</th><th class="num">7-14</th><th class="num">14-21</th><th class="num">&gt;21</th><th>Age mix</th></tr>';
+    var h = '<tr><th>In-charge</th><th class="num">Rows</th><th class="num">Qty</th><th class="num">Amount</th><th class="num">0-7</th><th class="num">8-14</th><th class="num">15-21</th><th class="num">&gt;21</th><th>Age mix</th></tr>';
     PEOPLE.forEach(function (n) {
       var s = stats(D.out[n]);
       Object.keys(tot).forEach(function (k) { tot[k] += s[k]; });
@@ -317,9 +323,9 @@ tr.total td { font-weight: 600; border-top: 2px solid var(--fg); border-bottom: 
       'Enclosed is the latest Pending DC Report for Minister White Clothing. Please go through it and act on the open items.'
     ]);
     var st = pick([
-      'The report lists ' + N + ' pending entries covering ' + U + ' units, with an outstanding value of about ₹' + X + ' Lakhs. For easier tracking, the entries are grouped by age: ' + t.a + ' are within 0-7 days, ' + t.b + ' are between 7-14 days, ' + t.c + ' are between 14-21 days, and ' + t.d + ' are above 21 days.',
-      'In total, ' + N + ' DC entries are pending, amounting to ' + U + ' units and roughly ₹' + X + ' Lakhs. By age, ' + t.a + ' entries fall in 0-7 days, ' + t.b + ' in 7-14 days, ' + t.c + ' in 14-21 days, and ' + t.d + ' are older than 21 days.',
-      'A total of ' + N + ' pending entries have been identified, representing ' + U + ' units valued at approximately ₹' + X + ' Lakhs. Ageing wise, ' + t.a + ' are in the 0-7 day band, ' + t.b + ' in the 7-14 day band, ' + t.c + ' in the 14-21 day band, and ' + t.d + ' are beyond 21 days.'
+      'The report lists ' + N + ' pending entries covering ' + U + ' units, with an outstanding value of about ₹' + X + ' Lakhs. For easier tracking, the entries are grouped by age: ' + t.a + ' are within 0-7 days, ' + t.b + ' are between 8-14 days, ' + t.c + ' are between 15-21 days, and ' + t.d + ' are above 21 days.',
+      'In total, ' + N + ' DC entries are pending, amounting to ' + U + ' units and roughly ₹' + X + ' Lakhs. By age, ' + t.a + ' entries fall in 0-7 days, ' + t.b + ' in 8-14 days, ' + t.c + ' in 15-21 days, and ' + t.d + ' are older than 21 days.',
+      'A total of ' + N + ' pending entries have been identified, representing ' + U + ' units valued at approximately ₹' + X + ' Lakhs. Ageing wise, ' + t.a + ' are in the 0-7 day band, ' + t.b + ' in the 8-14 day band, ' + t.c + ' in the 15-21 day band, and ' + t.d + ' are beyond 21 days.'
     ]);
     var rv = pick([
       'The concerned teams are requested to go through each pending entry, find the reasons for the delay, check the current status of the DC, and make sure the receipt is confirmed and the records are updated.',
@@ -338,6 +344,13 @@ tr.total td { font-weight: 600; border-top: 2px solid var(--fg); border-bottom: 
     ]);
     state.mailText = 'Subject: Pending DC Report - Minister White Clothing\n\nDear Team,\n\n' + intro + '\n\n' + st + '\n\n' + rv + '\n\n' + fu + '\n\n' + pr + '\n\nRegards,\nHemanath\nInternal Audit Analyst';
     $('mail').textContent = state.mailText;
+    state.mailTextTa = 'Subject: Pending DC Report - Minister White Clothing\n\nஅன்புள்ள குழுவினருக்கு,\n\n' +
+      'Minister White Clothing-ன் Pending DC Report இத்துடன் இணைக்கப்பட்டுள்ளது. தயவுசெய்து பார்வையிட்டு, தேவையான நடவடிக்கை எடுக்கவும்.\n\n' +
+      'இந்த report-ல் ' + N + ' pending entries உள்ளன. அவற்றில் ' + U + ' units அடங்கும், நிலுவை மதிப்பு சுமார் ₹' + X + ' லட்சம். எளிதாகக் கண்காணிக்க, entries-ஐ வயது அடிப்படையில் பிரித்துள்ளோம்: ' + t.a + ' entries 0-7 நாட்களுக்குள், ' + t.b + ' entries 8-14 நாட்களுக்குள், ' + t.c + ' entries 15-21 நாட்களுக்குள், ' + t.d + ' entries 21 நாட்களுக்கு மேல் உள்ளன.\n\n' +
+      'சம்பந்தப்பட்ட குழுக்கள் ஒவ்வொரு pending entry-யையும் பார்த்து, தாமதத்திற்கான காரணத்தைக் கண்டறிந்து, DC-யின் தற்போதைய நிலையைச் சரிபார்த்து, receipt உறுதிசெய்யப்பட்டு பதிவுகள் புதுப்பிக்கப்பட்டுள்ளனவா என்பதை உறுதி செய்யுமாறு கேட்டுக்கொள்கிறோம்.\n\n' +
+      'சம்பந்தப்பட்ட தரப்பினரிடம் தொடர்ந்து பின்தொடர்ந்து, எடுக்கப்பட்ட திருத்த நடவடிக்கைகளின் முன்னேற்றத்தை அவ்வப்போது தெரிவிக்கவும்.\n\n' +
+      'Pending DC-க்கள் குறையவும், inventory visibility மேம்படவும், stock records துல்லியமாக இருக்கவும், இந்த நடவடிக்கைகளுக்கு முன்னுரிமை அளிக்கவும்.\n\nநன்றி,\nHemanath\nInternal Audit Analyst';
+    $('mailta').textContent = state.mailTextTa;
   }
 
   function buildWorkbook() {
@@ -396,6 +409,15 @@ tr.total td { font-weight: 600; border-top: 2px solid var(--fg); border-bottom: 
       showMsg('Mail text is selected. Press Ctrl+C or long-press Copy.');
     };
     try { navigator.clipboard.writeText(state.mailText).then(done, fallback); } catch (e) { fallback(); }
+  });
+  $('copyta').addEventListener('click', function () {
+    var done = function () { $('copyta').textContent = 'Copied'; setTimeout(function () { $('copyta').textContent = 'Copy mail'; }, 1500); };
+    var fallback = function () {
+      var r = document.createRange(); r.selectNodeContents($('mailta'));
+      var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+      showMsg('Mail text is selected. Press Ctrl+C or long-press Copy.');
+    };
+    try { navigator.clipboard.writeText(state.mailTextTa).then(done, fallback); } catch (e) { fallback(); }
   });
   $('reword').addEventListener('click', mail);
   $('tabs').addEventListener('click', function (e) {

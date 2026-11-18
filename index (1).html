@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pending DC Report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<style>
+/* Layout: one narrow working column. Upload strip on top, in-charge summary, sheet preview, mail draft. */
+:root {
+  --bg: #f6f5f3;
+  --surface: #ffffff;
+  --fg: #1f2328;
+  --muted: #6b6f76;
+  --line: #e0ddd8;
+  --accent: #c55a11;
+  --accent-ink: #ffffff;
+  --accent-soft: #fbeadd;
+  --head: #c55a11;
+  --row: #fff2cc;
+  --good: #2f7d4f;
+  --warn: #b7791f;
+  --bad: #b3372c;
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Space Grotesk", "Inter", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #17181a; --surface: #202225; --fg: #ececea; --muted: #9a9ea5; --line: #34373b;
+    --accent: #e8803a; --accent-ink: #1a1208; --accent-soft: #3a2a1d; --row: #2d2a1c;
+    --good: #6cc08f; --warn: #e0b45a; --bad: #ee8a7f; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #17181a; --surface: #202225; --fg: #ececea; --muted: #9a9ea5; --line: #34373b;
+  --accent: #e8803a; --accent-ink: #1a1208; --accent-soft: #3a2a1d; --row: #2d2a1c;
+  --good: #6cc08f; --warn: #e0b45a; --bad: #ee8a7f; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 14px; line-height: 1.5; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 48px; }
+.wrap { max-width: 980px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+h1, h2 { font-family: var(--font-display); margin: 0; text-wrap: balance; }
+h1 { font-size: 26px; font-weight: 600; letter-spacing: -0.01em; }
+h2 { font-size: 16px; font-weight: 600; }
+.sub { color: var(--muted); margin: 4px 0 0; max-width: 62ch; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; min-width: 0; }
+.drop { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; border: 1.5px dashed var(--line); border-radius: 8px; padding: 18px; background: var(--surface); }
+.drop.over { border-color: var(--accent); background: var(--accent-soft); }
+.drop .txt { flex: 1 1 240px; min-width: 0; }
+.drop .txt strong { display: block; font-weight: 600; }
+.drop .txt span { color: var(--muted); }
+button, .btn { font: inherit; font-weight: 500; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); padding: 8px 14px; cursor: pointer; }
+button.primary, .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+button:disabled { opacity: .5; cursor: not-allowed; }
+button:focus-visible, input:focus-visible, label:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.opts { display: flex; flex-wrap: wrap; gap: 16px; align-items: end; margin-top: 12px; }
+.opts label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: 12px; }
+.opts input { font: inherit; padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); width: 150px; }
+.msg { padding: 10px 12px; border-radius: 6px; background: var(--accent-soft); border: 1px solid var(--line); }
+.msg.err { color: var(--bad); }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 20px; color: var(--muted); font-size: 13px; }
+.meta b { color: var(--fg); font-weight: 600; font-variant-numeric: tabular-nums; }
+.scroll { overflow-x: auto; max-width: 100%; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { font-size: 12px; font-weight: 600; letter-spacing: .03em; color: var(--muted); }
+td.num, th.num { text-align: right; }
+tr.total td { font-weight: 600; border-top: 2px solid var(--fg); border-bottom: 0; }
+.age-bar { display: flex; height: 6px; border-radius: 3px; overflow: hidden; min-width: 90px; background: var(--line); }
+.age-bar i { display: block; height: 100%; }
+.a0 { background: var(--good); } .a1 { background: var(--warn); } .a2 { background: var(--bad); } .a3 { background: var(--bad); filter: brightness(0.65); }
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
+.tabs button[aria-selected=true] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.prev th { background: var(--head); color: #fff; position: sticky; top: 0; }
+.prev td { background: var(--row); }
+.prev { max-height: 380px; overflow: auto; border: 1px solid var(--line); border-radius: 6px; }
+.mail { white-space: pre-wrap; font-family: var(--font-body); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 14px; margin: 12px 0 0; max-width: 100%; overflow-wrap: anywhere; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.grow { flex: 1 1 auto; }
+.map { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-top: 12px; }
+.map div { border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; min-width: 0; }
+.map b { display: block; font-family: var(--font-display); font-weight: 600; }
+.map span { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.note { color: var(--muted); font-size: 12px; }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Pending DC Report</h1>
+    <p class="sub">Minister White Clothing. Import the Ginesys DC Format Agent Wise Excel. The file is read in your browser and is not uploaded anywhere.</p>
+  </header>
+
+  <section>
+    <div class="drop" id="drop">
+      <div class="txt"><strong>Drop the Excel here</strong><span id="fname">DC_Format_Agent_Wise_*.xlsx</span></div>
+      <label class="btn primary" for="file" tabindex="-1">Choose file</label>
+      <input type="file" id="file" accept=".xlsx,.xls">
+    </div>
+    <div class="opts">
+      <label for="days">Days to leave out from the end<input id="days" type="number" min="0" max="60" value="5"></label>
+      <label for="enddate">Report end date (only if not detected)<input id="enddate" type="date"></label>
+      <button id="rerun" disabled>Apply</button>
+    </div>
+  </section>
+
+  <div id="status"></div>
+
+  <section class="panel" id="guide">
+    <h2>What this builds</h2>
+    <div class="map">
+      <div><b>Karthick</b><span>MINISTER WHITE CLOTHING - SHIRT CHE</span></div>
+      <div><b>Ganapathi</b><span>MINISTER WHITE ESSENTIALS - INNERWEAR</span></div>
+      <div><b>Sudhakar</b><span>MINISTER WHITE FABRICS, SUITING &amp; SHIRTING</span></div>
+      <div><b>Kumaravel</b><span>MINISTER WHITE FABRICS, THAN WH EBO and other Fabrics rows</span></div>
+    </div>
+    <p class="note">CLOTHING-CORP and CLOTHING (EBO) WH have no in-charge and are left out. REFERENCE_SITE is dropped. DC AGE, Location and Ageing are added.</p>
+  </section>
+
+  <div id="results" hidden>
+    <section class="panel">
+      <div class="row"><h2 class="grow">In-charge wise summary</h2><button class="primary" id="dl">Download Excel</button></div>
+      <div class="meta" id="meta" style="margin-top:10px"></div>
+      <div class="scroll" style="margin-top:12px"><table id="sumtbl"></table></div>
+      <p class="note" id="leftout"></p>
+    </section>
+
+    <section class="panel" style="margin-top:20px">
+      <h2>Sheet preview</h2>
+      <div class="tabs" id="tabs" role="tablist"></div>
+      <div class="prev scroll"><table id="prev"></table></div>
+      <p class="note" id="prevnote"></p>
+    </section>
+
+    <section class="panel" style="margin-top:20px">
+      <div class="row"><h2 class="grow">Mail draft</h2><button id="reword">Reword</button><button class="primary" id="copy">Copy mail</button></div>
+      <p class="note">To and CC are not filled. Add them when you send. Attach the downloaded Excel.</p>
+      <div class="mail" id="mail"></div>
+    </section>
+  </div>
+</div>
+
+<script>
+(function () {
+  var PEOPLE = ['Karthick', 'Ganapathi', 'Sudhakar', 'Kumaravel'];
+  var OUT_COLS = ['NAME','OUT_STOCKPOINT','Des Sit','SECTION','Agent Name','AGAINST_ORDER','DC_STATUS','CHALLAN_NO','CHALLAN_DATE','REMARKS','CHALLAN QTY','CHALLAN AMT'];
+  var MAP = {
+    'MINISTER WHITE CLOTHING - SHIRT CHE': 'Karthick',
+    'MINISTER WHITE ESSENTIALS - INNERWEAR (A UNIT OF OTTO CLOTHING PVT LTD)': 'Ganapathi'
+  };
+  var FABRICS = 'MINISTER WHITE FABRICS (A UNIT OF OTTO CLOTHING PVT LTD)';
+  var state = { grid: null, fileName: '', data: null, tab: 'Karthick' };
+  var $ = function (id) { return document.getElementById(id); };
+
+  function norm(s) { return String(s == null ? '' : s).replace(/ /g, ' ').replace(/\s+/g, ' ').trim().toUpperCase(); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function serialOf(v) {
+    if (v == null || v === '') return null;
+    if (typeof v === 'number') return Math.floor(v);
+    if (v instanceof Date) return Math.floor(Date.UTC(v.getFullYear(), v.getMonth(), v.getDate()) / 86400000) + 25569;
+    var m = String(v).match(/(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})/);
+    if (!m) return null;
+    return Math.floor(Date.UTC(+m[3], +m[2] - 1, +m[1]) / 86400000) + 25569;
+  }
+  function fmt(serial) {
+    if (serial == null) return '';
+    var d = new Date((serial - 25569) * 86400000);
+    var p = function (n) { return (n < 10 ? '0' : '') + n; };
+    return p(d.getUTCDate()) + '-' + p(d.getUTCMonth() + 1) + '-' + d.getUTCFullYear();
+  }
+  function num(v) { var n = Number(String(v == null ? '' : v).replace(/,/g, '')); return isFinite(n) ? n : 0; }
+  function showMsg(text, err) { $('status').innerHTML = text ? '<div class="msg' + (err ? ' err' : '') + '">' + esc(text) + '</div>' : ''; }
+
+  function loadFile(file) {
+    if (!file) return;
+    if (typeof XLSX === 'undefined') { showMsg('The Excel reader did not load. Check the connection and reopen this page.', true); return; }
+    state.fileName = file.name;
+    $('fname').textContent = file.name;
+    var fr = new FileReader();
+    fr.onload = function () {
+      try {
+        var wb = XLSX.read(new Uint8Array(fr.result), { type: 'array' });
+        var ws = wb.Sheets[wb.SheetNames[0]];
+        state.grid = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' });
+        var end = null;
+        for (var r = 0; r < Math.min(6, state.grid.length) && end == null; r++) {
+          var row = state.grid[r];
+          for (var c = 0; c < Math.min(6, row.length) && end == null; c++) {
+            if (r === 2 && c !== 2) continue;
+            var s = serialOf(row[c]);
+            if (s && s > 40000) end = s;
+          }
+        }
+        if (end == null) {
+          for (var r2 = 0; r2 < Math.min(6, state.grid.length) && end == null; r2++)
+            for (var c2 = 0; c2 < state.grid[r2].length && end == null; c2++) {
+              var s2 = serialOf(state.grid[r2][c2]);
+              if (s2 && s2 > 40000 && typeof state.grid[r2][c2] === 'string') end = s2;
+            }
+        }
+        if (end != null) { $('enddate').value = new Date((end - 25569) * 86400000).toISOString().slice(0, 10); }
+        run();
+      } catch (e) {
+        showMsg('This file could not be read. Use the Ginesys DC Format Agent Wise .xlsx.', true);
+      }
+    };
+    fr.readAsArrayBuffer(file);
+  }
+
+  function run() {
+    if (!state.grid) return;
+    var g = state.grid, hi = -1;
+    for (var i = 0; i < Math.min(12, g.length); i++) { if (norm(g[i][0]) === 'NAME') { hi = i; break; } }
+    if (hi < 0) { showMsg('The header row starting with NAME was not found. Check that this is the DC Format Agent Wise report.', true); return; }
+    var ev = $('enddate').value, end = null;
+    if (ev) { var p = ev.split('-'); end = Math.floor(Date.UTC(+p[0], +p[1] - 1, +p[2]) / 86400000) + 25569; }
+    if (end == null) { showMsg('Report end date was not found in the file. Pick it in the date box and press Apply.', true); return; }
+    var days = Math.max(0, parseInt($('days').value, 10) || 0), cutoff = end - days;
+    var idx = {};
+    g[hi].forEach(function (h, k) { idx[norm(h)] = k; });
+    var need = ['NAME', 'OUT_STOCKPOINT', 'CHALLAN_DATE', 'CHALLAN QTY', 'CHALLAN AMT'];
+    var miss = need.filter(function (n) { return idx[n] == null; });
+    if (miss.length) { showMsg('Missing columns: ' + miss.join(', ') + '.', true); return; }
+    var out = {}, left = {}, kept = 0;
+    PEOPLE.forEach(function (n) { out[n] = []; });
+    for (var r = hi + 1; r < g.length; r++) {
+      var row = g[r], name = norm(row[idx['NAME']]);
+      if (!name || name.indexOf('TOTAL') === 0) continue;
+      var d = serialOf(row[idx['CHALLAN_DATE']]);
+      if (d == null || d > cutoff) continue;
+      var who = MAP[name];
+      if (!who && name === FABRICS) {
+        var sp = norm(row[idx['OUT_STOCKPOINT']]);
+        who = sp.indexOf('SUITING') >= 0 || sp.indexOf('SHIRTING') >= 0 ? 'Sudhakar' : 'Kumaravel';
+      }
+      if (!who) { var nm = String(row[idx['NAME']]).replace(/ /g, ' ').trim(); left[nm] = (left[nm] || 0) + 1; continue; }
+      var rec = {};
+      OUT_COLS.forEach(function (c) { var k = idx[norm(c)]; rec[c] = k == null ? '' : row[k]; });
+      rec['CHALLAN_DATE'] = d;
+      rec['CHALLAN QTY'] = num(rec['CHALLAN QTY']);
+      rec['CHALLAN AMT'] = num(rec['CHALLAN AMT']);
+      rec['DC AGE'] = end - d;
+      rec['Location'] = who;
+      rec['Ageing'] = rec['DC AGE'] <= 7 ? '0-7' : rec['DC AGE'] <= 14 ? '7-14' : rec['DC AGE'] <= 21 ? '14-21' : '>21';
+      out[who].push(rec); kept++;
+    }
+    PEOPLE.forEach(function (n) { out[n].sort(function (a, b) { return a['CHALLAN_DATE'] - b['CHALLAN_DATE']; }); });
+    state.data = { out: out, left: left, end: end, cutoff: cutoff, days: days, kept: kept };
+    showMsg('');
+    $('rerun').disabled = false;
+    $('guide').hidden = true;
+    $('results').hidden = false;
+    render();
+  }
+
+  function stats(rows) {
+    var s = { n: rows.length, qty: 0, amt: 0, a: 0, b: 0, c: 0, d: 0 };
+    rows.forEach(function (r) {
+      s.qty += r['CHALLAN QTY']; s.amt += r['CHALLAN AMT'];
+      if (r['Ageing'] === '0-7') s.a++; else if (r['Ageing'] === '7-14') s.b++; else if (r['Ageing'] === '14-21') s.c++; else s.d++;
+    });
+    return s;
+  }
+  var nf = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 });
+  var nf2 = new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  function render() {
+    var D = state.data, tot = { n: 0, qty: 0, amt: 0, a: 0, b: 0, c: 0, d: 0 };
+    $('meta').innerHTML = 'Report end date <b>' + fmt(D.end) + '</b> · Cut-off <b>' + fmt(D.cutoff) + '</b> (last ' + D.days + ' days removed) · Rows kept <b>' + D.kept + '</b>';
+    var h = '<tr><th>In-charge</th><th class="num">Rows</th><th class="num">Qty</th><th class="num">Amount</th><th class="num">0-7</th><th class="num">7-14</th><th class="num">14-21</th><th class="num">&gt;21</th><th>Age mix</th></tr>';
+    PEOPLE.forEach(function (n) {
+      var s = stats(D.out[n]);
+      Object.keys(tot).forEach(function (k) { tot[k] += s[k]; });
+      var t = s.n || 1;
+      h += '<tr><td>' + n + '</td><td class="num">' + s.n + '</td><td class="num">' + nf.format(s.qty) + '</td><td class="num">' + nf2.format(s.amt) + '</td><td class="num">' + s.a + '</td><td class="num">' + s.b + '</td><td class="num">' + s.c + '</td><td class="num">' + s.d + '</td><td><div class="age-bar"><i class="a0" style="width:' + s.a / t * 100 + '%"></i><i class="a1" style="width:' + s.b / t * 100 + '%"></i><i class="a2" style="width:' + s.c / t * 100 + '%"></i><i class="a3" style="width:' + s.d / t * 100 + '%"></i></div></td></tr>';
+    });
+    h += '<tr class="total"><td>Total</td><td class="num">' + tot.n + '</td><td class="num">' + nf.format(tot.qty) + '</td><td class="num">' + nf2.format(tot.amt) + '</td><td class="num">' + tot.a + '</td><td class="num">' + tot.b + '</td><td class="num">' + tot.c + '</td><td class="num">' + tot.d + '</td><td></td></tr>';
+    $('sumtbl').innerHTML = h;
+    state.tot = tot;
+    var lk = Object.keys(D.left);
+    $('leftout').textContent = (lk.length ? 'Left out, no in-charge: ' + lk.map(function (k) { return k + ' (' + D.left[k] + ' rows)'; }).join('; ') + '. ' : '') + 'Sudhakar is Suiting & Shirting. Kumaravel is Than.';
+    $('tabs').innerHTML = PEOPLE.map(function (n) { return '<button role="tab" data-t="' + n + '" aria-selected="' + (n === state.tab) + '">' + n + '</button>'; }).join('');
+    renderPrev();
+    mail();
+  }
+
+  function renderPrev() {
+    var rows = state.data.out[state.tab], cols = OUT_COLS.concat(['DC AGE', 'Location', 'Ageing']);
+    var shown = rows.slice(0, 300);
+    var h = '<tr>' + cols.map(function (c) { return '<th>' + esc(c) + '</th>'; }).join('') + '</tr>';
+    shown.forEach(function (r) {
+      h += '<tr>' + cols.map(function (c) {
+        var v = r[c];
+        if (c === 'CHALLAN_DATE') v = fmt(v);
+        else if (c === 'CHALLAN AMT') v = nf2.format(v);
+        return '<td>' + esc(v) + '</td>';
+      }).join('') + '</tr>';
+    });
+    $('prev').innerHTML = h;
+    $('prevnote').textContent = rows.length > 300 ? 'Showing the first 300 of ' + rows.length + ' rows. The Excel has all of them.' : rows.length + ' rows.';
+  }
+
+  var pick = function (a) { return a[Math.floor(Math.random() * a.length)]; };
+  function mail() {
+    var t = state.tot, U = nf.format(Math.round(t.qty)), X = (t.amt / 100000).toFixed(2), N = t.n;
+    var intro = pick([
+      'Please find attached the Pending DC Report for Minister White Clothing for your review and necessary action.',
+      'Attached is the Pending DC Report for Minister White Clothing. Kindly review it and take the required action.',
+      'The Pending DC Report for Minister White Clothing is enclosed for your attention and follow-up.',
+      'Enclosed is the latest Pending DC Report for Minister White Clothing. Please go through it and act on the open items.'
+    ]);
+    var st = pick([
+      'The report lists ' + N + ' pending entries covering ' + U + ' units, with an outstanding value of about ₹' + X + ' Lakhs. For easier tracking, the entries are grouped by age: ' + t.a + ' are within 0-7 days, ' + t.b + ' are between 7-14 days, ' + t.c + ' are between 14-21 days, and ' + t.d + ' are above 21 days.',
+      'In total, ' + N + ' DC entries are pending, amounting to ' + U + ' units and roughly ₹' + X + ' Lakhs. By age, ' + t.a + ' entries fall in 0-7 days, ' + t.b + ' in 7-14 days, ' + t.c + ' in 14-21 days, and ' + t.d + ' are older than 21 days.',
+      'A total of ' + N + ' pending entries have been identified, representing ' + U + ' units valued at approximately ₹' + X + ' Lakhs. Ageing wise, ' + t.a + ' are in the 0-7 day band, ' + t.b + ' in the 7-14 day band, ' + t.c + ' in the 14-21 day band, and ' + t.d + ' are beyond 21 days.'
+    ]);
+    var rv = pick([
+      'The concerned teams are requested to go through each pending entry, find the reasons for the delay, check the current status of the DC, and make sure the receipt is confirmed and the records are updated.',
+      'Please review every pending transaction, establish why it is delayed, confirm where each DC stands today, and complete the receipt confirmation and related records.',
+      'Each team is requested to examine its pending DCs, note the cause of the delay, verify the present status, and ensure receipts are confirmed and entries are properly recorded.'
+    ]);
+    var fu = pick([
+      'Please keep following up with the respective parties and share progress on the corrective actions at regular intervals.',
+      'Regular follow-up with the concerned parties should continue, and updates on the actions taken should be shared periodically.',
+      'Stay in touch with the parties involved and send periodic updates on how the corrective actions are progressing.'
+    ]);
+    var pr = pick([
+      'Kindly prioritise these actions so that pending DCs come down, inventory visibility improves and stock records stay accurate.',
+      'Priority may be given to clearing the pending DCs, which will improve inventory visibility and keep stock records accurate.',
+      'Please treat these actions as a priority to reduce pending DCs, improve stock visibility and maintain correct stock records.'
+    ]);
+    state.mailText = 'Subject: Pending DC Report - Minister White Clothing\n\nDear Team,\n\n' + intro + '\n\n' + st + '\n\n' + rv + '\n\n' + fu + '\n\n' + pr + '\n\nRegards,\nHemanath\nInternal Audit Analyst';
+    $('mail').textContent = state.mailText;
+  }
+
+  function buildWorkbook() {
+    var wb = XLSX.utils.book_new(), cols = OUT_COLS.concat(['DC AGE', 'Location', 'Ageing']);
+    var thin = { style: 'thin', color: { rgb: '999999' } }, border = { top: thin, bottom: thin, left: thin, right: thin };
+    PEOPLE.forEach(function (n) {
+      var rows = state.data.out[n], aoa = [];
+      aoa.push(cols.map(function (c) { return { v: c, t: 's', s: { font: { name: 'Cambria', bold: true, color: { rgb: 'FFFFFF' } }, fill: { patternType: 'solid', fgColor: { rgb: 'C55A11' } }, border: border, alignment: { vertical: 'center' } } }; }));
+      var widths = cols.map(function (c) { return c.length + 2; });
+      rows.forEach(function (r) {
+        aoa.push(cols.map(function (c, i) {
+          var v = r[c], base = { font: { name: 'Cambria' }, fill: { patternType: 'solid', fgColor: { rgb: 'FFF2CC' } }, border: border }, cell;
+          if (c === 'CHALLAN_DATE') { cell = { v: v, t: 'n', z: 'dd-mm-yyyy', s: Object.assign({ alignment: { horizontal: 'center' } }, base) }; widths[i] = Math.max(widths[i], 12); }
+          else if (c === 'CHALLAN QTY') { cell = { v: v, t: 'n', s: Object.assign({ alignment: { horizontal: 'right' } }, base) }; widths[i] = Math.max(widths[i], String(v).length + 2); }
+          else if (c === 'CHALLAN AMT') { cell = { v: v, t: 'n', z: '#,##0.00', s: Object.assign({ alignment: { horizontal: 'right' } }, base) }; widths[i] = Math.max(widths[i], nf2.format(v).length + 2); }
+          else if (c === 'DC AGE') { cell = { v: v, t: 'n', s: Object.assign({ alignment: { horizontal: 'right' } }, base) }; }
+          else { var sv = v == null ? '' : String(v).replace(/ /g, ' '); cell = { v: sv, t: 's', s: base }; widths[i] = Math.max(widths[i], sv.length + 2); }
+          return cell;
+        }));
+      });
+      var ws = XLSX.utils.aoa_to_sheet(aoa);
+      ws['!cols'] = widths.map(function (w) { return { wch: Math.min(70, w) }; });
+      ws['!autofilter'] = { ref: 'A1:' + XLSX.utils.encode_col(cols.length - 1) + (rows.length + 1) };
+      ws['!freeze'] = { xSplit: '0', ySplit: '1', topLeftCell: 'A2', activePane: 'bottomLeft', state: 'frozen' };
+      XLSX.utils.book_append_sheet(wb, ws, n);
+    });
+    return wb;
+  }
+
+  $('dl').addEventListener('click', async function () {
+    var btn = $('dl');
+    try {
+      var dl = null;
+      try { dl = (window.claude && window.claude.use) ? await window.claude.use('downloads') : null; } catch (e2) { dl = null; }
+      var buf = XLSX.write(buildWorkbook(), { bookType: 'xlsx', type: 'array', cellStyles: true });
+      btn.disabled = true;
+      if (dl) { await dl.save({ filename: 'DC_Incharge_Wise.xlsx', data: buf }); }
+      else {
+        var blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob); a.download = 'DC_Incharge_Wise.xlsx';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+      }
+      showMsg('Saved DC_Incharge_Wise.xlsx.');
+    } catch (e) {
+      if (!e || e.code !== 'declined') showMsg('Download did not complete' + (e && e.message ? ': ' + e.message : '.'), true);
+    } finally { btn.disabled = false; }
+  });
+
+  $('copy').addEventListener('click', function () {
+    var done = function () { $('copy').textContent = 'Copied'; setTimeout(function () { $('copy').textContent = 'Copy mail'; }, 1500); };
+    var fallback = function () {
+      var r = document.createRange(); r.selectNodeContents($('mail'));
+      var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+      showMsg('Mail text is selected. Press Ctrl+C or long-press Copy.');
+    };
+    try { navigator.clipboard.writeText(state.mailText).then(done, fallback); } catch (e) { fallback(); }
+  });
+  $('reword').addEventListener('click', mail);
+  $('tabs').addEventListener('click', function (e) {
+    var t = e.target.getAttribute && e.target.getAttribute('data-t');
+    if (!t) return;
+    state.tab = t;
+    Array.prototype.forEach.call($('tabs').children, function (b) { b.setAttribute('aria-selected', b.getAttribute('data-t') === t); });
+    renderPrev();
+  });
+  $('file').addEventListener('change', function (e) { loadFile(e.target.files[0]); });
+  $('rerun').addEventListener('click', run);
+  var drop = $('drop');
+  ['dragenter', 'dragover'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add('over'); }); });
+  ['dragleave', 'drop'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove('over'); }); });
+  drop.addEventListener('drop', function (e) { loadFile(e.dataTransfer.files[0]); });
+})();
+</script>
+
+</body>
+</html>
